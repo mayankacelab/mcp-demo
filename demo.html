@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Demo Client</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .section h2 {
+            color: #555;
+            margin-top: 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        .input-group label {
+            display: inline-block;
+            width: 100px;
+            font-weight: bold;
+        }
+        .input-group input, .input-group select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 200px;
+        }
+        .output {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 MCP Demo Client</h1>
+        
+        <div class="section">
+            <h2>Server Connection</h2>
+            <button onclick="checkHealth()">Check Health</button>
+            <button onclick="initialize()">Initialize</button>
+            <div id="connectionStatus" class="status info">Ready to connect...</div>
+        </div>
+
+        <div class="section">
+            <h2>Available Tools</h2>
+            <button onclick="listTools()">List Tools</button>
+            <div id="toolsOutput" class="output"></div>
+        </div>
+
+        <div class="section">
+            <h2>Calculator Tool</h2>
+            <div class="input-group">
+                <label>Operation:</label>
+                <select id="calcOperation">
+                    <option value="add">Add</option>
+                    <option value="subtract">Subtract</option>
+                    <option value="multiply">Multiply</option>
+                    <option value="divide">Divide</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Number A:</label>
+                <input type="number" id="calcA" value="10">
+            </div>
+            <div class="input-group">
+                <label>Number B:</label>
+                <input type="number" id="calcB" value="5">
+            </div>
+            <button onclick="callCalculator()">Calculate</button>
+            <div id="calcOutput" class="output"></div>
+        </div>
+
+        <div class="section">
+            <h2>Text Processor Tool</h2>
+            <div class="input-group">
+                <label>Operation:</label>
+                <select id="textOperation">
+                    <option value="uppercase">Uppercase</option>
+                    <option value="lowercase">Lowercase</option>
+                    <option value="reverse">Reverse</option>
+                    <option value="length">Length</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Text:</label>
+                <input type="text" id="textInput" value="Hello MCP World!" style="width: 300px;">
+            </div>
+            <button onclick="callTextProcessor()">Process Text</button>
+            <div id="textOutput" class="output"></div>
+        </div>
+
+        <div class="section">
+            <h2>Resources</h2>
+            <button onclick="listResources()">List Resources</button>
+            <button onclick="readResource()">Read Sample Data</button>
+            <div id="resourcesOutput" class="output"></div>
+        </div>
+    </div>
+
+    <script>
+        const SERVER_URL = 'http://localhost:3000';
+
+        function setStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        function setOutput(elementId, content) {
+            document.getElementById(elementId).textContent = JSON.stringify(content, null, 2);
+        }
+
+        async function makeRequest(endpoint, data = {}) {
+            try {
+                const response = await fetch(`${SERVER_URL}${endpoint}`, {
+                    method: endpoint === '/' ? 'GET' : 'POST',
+                    headers: endpoint === '/' ? {} : { 'Content-Type': 'application/json' },
+                    body: endpoint === '/' ? undefined : JSON.stringify(data)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Request failed:', error);
+                throw error;
+            }
+        }
+
+        async function checkHealth() {
+            try {
+                const result = await makeRequest('/health');
+                setStatus('connectionStatus', 'Server is healthy! ✅', 'success');
+                console.log('Health check:', result);
+            } catch (error) {
+                setStatus('connectionStatus', `Health check failed: ${error.message} ❌`, 'error');
+            }
+        }
+
+        async function initialize() {
+            try {
+                const result = await makeRequest('/mcp/initialize');
+                setStatus('connectionStatus', 'Successfully initialized! 🎉', 'success');
+                console.log('Initialize:', result);
+            } catch (error) {
+                setStatus('connectionStatus', `Initialization failed: ${error.message} ❌`, 'error');
+            }
+        }
+
+        async function listTools() {
+            try {
+                const result = await makeRequest('/mcp/tools/list');
+                setOutput('toolsOutput', result);
+                console.log('Tools:', result);
+            } catch (error) {
+                setOutput('toolsOutput', { error: error.message });
+            }
+        }
+
+        async function callCalculator() {
+            try {
+                const operation = document.getElementById('calcOperation').value;
+                const a = parseFloat(document.getElementById('calcA').value);
+                const b = parseFloat(document.getElementById('calcB').value);
+
+                const result = await makeRequest('/mcp/tools/call', {
+                    name: 'calculator',
+                    arguments: { operation, a, b }
+                });
+                
+                setOutput('calcOutput', result);
+                console.log('Calculator result:', result);
+            } catch (error) {
+                setOutput('calcOutput', { error: error.message });
+            }
+        }
+
+        async function callTextProcessor() {
+            try {
+                const operation = document.getElementById('textOperation').value;
+                const text = document.getElementById('textInput').value;
+
+                const result = await makeRequest('/mcp/tools/call', {
+                    name: 'text_processor',
+                    arguments: { operation, text }
+                });
+                
+                setOutput('textOutput', result);
+                console.log('Text processor result:', result);
+            } catch (error) {
+                setOutput('textOutput', { error: error.message });
+            }
+        }
+
+        async function listResources() {
+            try {
+                const result = await makeRequest('/mcp/resources/list');
+                setOutput('resourcesOutput', result);
+                console.log('Resources:', result);
+            } catch (error) {
+                setOutput('resourcesOutput', { error: error.message });
+            }
+        }
+
+        async function readResource() {
+            try {
+                const result = await makeRequest('/mcp/resources/read', {
+                    uri: 'demo://sample-data'
+                });
+                
+                setOutput('resourcesOutput', result);
+                console.log('Resource content:', result);
+            } catch (error) {
+                setOutput('resourcesOutput', { error: error.message });
+            }
+        }
+
+        // Auto-check health on page load
+        window.addEventListener('load', checkHealth);
+    </script>
+</body>
+</html>
